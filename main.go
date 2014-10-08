@@ -20,30 +20,34 @@ func UniqueName(path string) bool {
 }
 
 // Check if an instance of the same binary is running.
-func UniqueBinary(pid int64) (bool, error) {
+func UniqueBinary(pid int) error {
 	// Resolve the exe symlink for this PID.
 	path, err := resolveExeSymlink(pid)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	// Build an inverted index of all /proc/PID/exe symlinks.
 	index, err := buildInvertedIndex()
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	// Query the index to see if there are multiple instances.
 	bin, ok := index[path]
 	if !ok {
-		return false, fmt.Errorf("Unknown binary path %s", path)
+		return fmt.Errorf("Unknown binary path %s", path)
 	}
 
-	return bin.Has(pid), nil
+	if bin.Size() > 1 {
+		return fmt.Errorf("Existing binary %s detected!", path)
+	}
+
+	return nil
 }
 
 // Resole the exe symlink for a PID.
-func resolveExeSymlink(pid int64) (string, error) {
+func resolveExeSymlink(pid int) (string, error) {
 	path, err := os.Readlink(fmt.Sprintf("/proc/%d/exe", pid))
 	if err != nil {
 		return "", err
@@ -64,7 +68,7 @@ func buildInvertedIndex() (map[string]*set.Set, error) {
 
 	// Filter for PIDs and resolve their exe symlinks.
 	for _, e := range entries {
-		pid, err := strconv.ParseInt(e.Name(), 10, 64)
+		pid, err := strconv.Atoi(e.Name())
 		if err != nil {
 			continue
 		}

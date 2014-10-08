@@ -73,9 +73,10 @@ func buildInvertedIndex() (map[string]*set.Set, error) {
 			continue
 		}
 
+		// Skip this path if the exe symlink does not resolve properly.
 		path, err := resolveExeSymlink(pid)
 		if err != nil {
-			return nil, err
+			continue
 		}
 
 		if bin, ok := index[path]; ok {

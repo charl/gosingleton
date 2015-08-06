@@ -26,7 +26,7 @@ func UniqueName(path string) bool {
 func UniqueBinary(pid int) error {
 	// This was only developed for Linux so exit early if we're running in some other OS.
 	if runtime.GOOS != "linux" {
-		fmt.Printf("%s is not a supported platform failing open", runtime.GOOS)
+		fmt.Printf("%s is not a supported platform failing open\n", runtime.GOOS)
 		return nil
 	}
 

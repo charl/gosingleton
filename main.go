@@ -1,16 +1,19 @@
 package gosingleton
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"runtime"
 	"strconv"
 
 	"gopkg.in/fatih/set.v0"
 )
 
-const version = "v0.0.2"
+const version = "v0.0.3"
 
 // Check if we're the only process running with this path.
 func UniquePath(path string) bool {
@@ -23,11 +26,12 @@ func UniqueName(path string) bool {
 }
 
 // Check if an instance of the same binary is running.
-func UniqueBinary(pid int) error {
+func UniqueBinary(name string, pid int) error {
 	// This was only developed for Linux so exit early if we're running in some other OS.
 	if runtime.GOOS != "linux" {
-		fmt.Printf("%s is not a supported platform failing open\n", runtime.GOOS)
-		return nil
+		// fmt.Printf("%s is not a supported platform failing open\n", runtime.GOOS)
+
+		return resolveUsingPs(name)
 	}
 
 	// Resolve the exe symlink for this PID.
@@ -50,6 +54,34 @@ func UniqueBinary(pid int) error {
 
 	if bin.Size() > 1 {
 		return fmt.Errorf("Existing binary %s detected!", path)
+	}
+
+	return nil
+}
+
+// resolveUsingPs does a UNIX _ps -axw | grep $name | grep -v grep_ to check if the named proc is running.
+func resolveUsingPs(name string) error {
+	var b bytes.Buffer
+
+	c1 := exec.Command("ps", "-axw")
+	c2 := exec.Command("grep", name)
+	c3 := exec.Command("grep", "-v", "grep")
+
+	c3.Stdin, _ = c2.StdoutPipe()
+	c2.Stdin, _ = c1.StdoutPipe()
+	c3.Stdout = os.Stdout
+
+	_ = c3.Start()
+	_ = c2.Start()
+	_ = c1.Run()
+	_ = c2.Wait()
+	_ = c2.Run()
+	_ = c3.Wait()
+
+	io.Copy(os.Stdout, &b)
+
+	if b.String() != "" {
+		return fmt.Errorf("Existing binary %s detected!", name)
 	}
 
 	return nil

@@ -13,7 +13,7 @@ import (
 	"gopkg.in/fatih/set.v0"
 )
 
-const version = "v0.0.3"
+const version = "v0.0.4"
 
 // Check if we're the only process running with this path.
 func UniquePath(path string) bool {
@@ -29,8 +29,6 @@ func UniqueName(path string) bool {
 func UniqueBinary(name string, pid int) error {
 	// This was only developed for Linux so exit early if we're running in some other OS.
 	if runtime.GOOS != "linux" {
-		// fmt.Printf("%s is not a supported platform failing open\n", runtime.GOOS)
-
 		return resolveUsingPs(name)
 	}
 

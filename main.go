@@ -39,9 +39,6 @@ func UniqueBinary(name string, pid int) error {
 
 	// Query the /proc fs to see if there are multiple instances.
 	err = existingProcEntry(path)
-	if err == nil {
-		return fmt.Errorf("Unknown binary path %s", path)
-	}
 	if err != nil {
 		return fmt.Errorf("Existing binary %s detected!", path)
 	}

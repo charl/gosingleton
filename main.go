@@ -2,6 +2,7 @@ package gosingleton
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -9,11 +10,9 @@ import (
 	"os/exec"
 	"runtime"
 	"strconv"
-
-	"gopkg.in/fatih/set.v0"
 )
 
-const version = "v0.0.4"
+// const version = "v0.0.5"
 
 // Check if we're the only process running with this path.
 func UniquePath(path string) bool {
@@ -38,19 +37,12 @@ func UniqueBinary(name string, pid int) error {
 		return err
 	}
 
-	// Build an inverted index of all /proc/PID/exe symlinks.
-	index, err := buildInvertedIndex()
-	if err != nil {
-		return err
-	}
-
-	// Query the index to see if there are multiple instances.
-	bin, ok := index[path]
-	if !ok {
+	// Query the /proc fs to see if there are multiple instances.
+	err = existingProcEntry(path)
+	if err == nil {
 		return fmt.Errorf("Unknown binary path %s", path)
 	}
-
-	if bin.Size() > 1 {
+	if err != nil {
 		return fmt.Errorf("Existing binary %s detected!", path)
 	}
 
@@ -76,7 +68,10 @@ func resolveUsingPs(name string) error {
 	_ = c2.Run()
 	_ = c3.Wait()
 
-	io.Copy(os.Stdout, &b)
+	_, err := io.Copy(os.Stdout, &b)
+	if err != nil {
+		return err
+	}
 
 	if b.String() != "" {
 		return fmt.Errorf("Existing binary %s detected!", name)
@@ -95,14 +90,14 @@ func resolveExeSymlink(pid int) (string, error) {
 	return path, nil
 }
 
-// Build an inverted index of paths as keys with sets of PIDs as values.
-func buildInvertedIndex() (map[string]*set.Set, error) {
-	index := make(map[string]*set.Set)
+// existingProcEntry checks to see if this path is already represented in the /proc fs.
+func existingProcEntry(path string) error {
+	index := make(map[string]int)
 
 	// Find all entries under /proc.
 	entries, err := ioutil.ReadDir("/proc")
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Filter for PIDs and resolve their exe symlinks.
@@ -113,17 +108,18 @@ func buildInvertedIndex() (map[string]*set.Set, error) {
 		}
 
 		// Skip this path if the exe symlink does not resolve properly.
-		path, err := resolveExeSymlink(pid)
+		resolvedPath, err := resolveExeSymlink(pid)
 		if err != nil {
 			continue
 		}
 
-		if bin, ok := index[path]; ok {
-			bin.Add(pid)
-		} else {
-			index[path] = set.New(pid)
-		}
+		index[resolvedPath]++
 	}
 
-	return index, nil
+	c := index[path]
+	if c > 1 {
+		return errors.New("multiple instnaces")
+	}
+
+	return nil
 }

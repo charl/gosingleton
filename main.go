@@ -12,7 +12,7 @@ import (
 	"strconv"
 )
 
-// const version = "v0.0.5"
+// const version = "v0.0.6"
 
 // Check if we're the only process running with this path.
 func UniquePath(path string) bool {
